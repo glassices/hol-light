@@ -3,7 +3,7 @@ module Thm = struct
   let compare th0 th1 =
     Pervasives.compare th0 th1;;
 end;;
-module dict_thm = Map.Make(Thm);;
+module Dict_thm = Map.Make(Thm);;
 
 let dest_trefl =
   function (Trefl(t,th)) -> t,th | _ -> failwith "dest_trefl: not a Trefl";;
@@ -100,11 +100,13 @@ let build_tree_v3 t_list thh =
   let lemmas = setify (find_lemma t_list ([]:thm list)) in
   let t_list = setify t_list in
   if mem thh lemmas then Lemma(thh) else
-    let th_to_node = ref [] in
-    let th_to_size = ref [] in
+    let th_to_node = ref Dict_thm.empty in
+    let th_to_size = ref Dict_thm.empty in
     let rec assign_lemma lemmas =
       match lemmas with
-        (h::t) -> th_to_node := (h,Lemma(h))::(!th_to_node); th_to_size := (h,1)::(!th_to_size); assign_lemma t
+        (h::t) -> th_to_node := Dict_thm.add h (Lemma(h)) !th_to_node;
+                  th_to_size := Dict_thm.add h 1 !th_to_size;
+                  assign_lemma t
       | [] -> () in
     let res = assign_lemma lemmas in
     let null_node = Lemma(thh) in
@@ -115,45 +117,45 @@ let build_tree_v3 t_list thh =
                       Trefl(t,th) -> Leaf(th,"refl",t), 1
                     | Tbeta(t,th) -> Leaf(th,"beta",t), 1
                     | Tassume(t,th) -> Leaf(th,"assume",t), 1
-                    | Tabs(t,th1,th2) -> begin try let node' = assoc th1 !th_to_node in let size' = assoc th1 !th_to_size in
+                    | Tabs(t,th1,th2) -> begin try let node' = Dict_thm.find th1 !th_to_node in let size' = Dict_thm.find th1 !th_to_size in
                                                  if size'+1 < prev_size then Uabs(th2,t,ref node'), size'+1
                                                  else prev_node, prev_size
-                                               with Failure _ -> prev_node, prev_size end
-                    | Tinst(tpl,th1,th2) -> begin try let node' = assoc th1 !th_to_node in let size' = assoc th1 !th_to_size in
+                                               with e -> prev_node, prev_size end
+                    | Tinst(tpl,th1,th2) -> begin try let node' = Dict_thm.find th1 !th_to_node in let size' = Dict_thm.find th1 !th_to_size in
                                                       if size'+1 < prev_size then Uinst(th2,tpl,ref node'), size'+1
                                                       else prev_node, prev_size
-                                                  with Failure _ -> prev_node, prev_size end
-                    | Tinst_type(typl,th1,th2) -> begin try let node' = assoc th1 !th_to_node in let size' = assoc th1 !th_to_size in
+                                                  with e -> prev_node, prev_size end
+                    | Tinst_type(typl,th1,th2) -> begin try let node' = Dict_thm.find th1 !th_to_node in let size' = Dict_thm.find th1 !th_to_size in
                                                             if size'+1 < prev_size then Uinst_type(th2,typl,ref node'), size'+1
                                                             else prev_node, prev_size
-                                                        with Failure _ -> prev_node, prev_size end
-                    | Ttrans(th1,th2,th3) -> begin try let node' = assoc th1 !th_to_node in let size' = assoc th1 !th_to_size in
-                                                       let node'' = assoc th2 !th_to_node in let size'' = assoc th2 !th_to_size in
+                                                        with e -> prev_node, prev_size end
+                    | Ttrans(th1,th2,th3) -> begin try let node' = Dict_thm.find th1 !th_to_node in let size' = Dict_thm.find th1 !th_to_size in
+                                                       let node'' = Dict_thm.find th2 !th_to_node in let size'' = Dict_thm.find th2 !th_to_size in
                                                        if size'+size''+1 < prev_size then Binary(th3,"trans",ref node',ref node''), size'+size''+1
                                                        else prev_node, prev_size
-                                                   with Failure _ -> prev_node, prev_size end
-                    | Tmk_comb(th1,th2,th3) -> begin try let node' = assoc th1 !th_to_node in let size' = assoc th1 !th_to_size in
-                                                         let node'' = assoc th2 !th_to_node in let size'' = assoc th2 !th_to_size in
+                                                   with e -> prev_node, prev_size end
+                    | Tmk_comb(th1,th2,th3) -> begin try let node' = Dict_thm.find th1 !th_to_node in let size' = Dict_thm.find th1 !th_to_size in
+                                                         let node'' = Dict_thm.find th2 !th_to_node in let size'' = Dict_thm.find th2 !th_to_size in
                                                          if size'+size''+1 < prev_size then Binary(th3,"mk_comb",ref node',ref node''), size'+size''+1
                                                          else prev_node, prev_size
-                                                     with Failure _ -> prev_node, prev_size end
-                    | Teq_mp(th1,th2,th3) -> begin try let node' = assoc th1 !th_to_node in let size' = assoc th1 !th_to_size in
-                                                       let node'' = assoc th2 !th_to_node in let size'' = assoc th2 !th_to_size in
+                                                     with e -> prev_node, prev_size end
+                    | Teq_mp(th1,th2,th3) -> begin try let node' = Dict_thm.find th1 !th_to_node in let size' = Dict_thm.find th1 !th_to_size in
+                                                       let node'' = Dict_thm.find th2 !th_to_node in let size'' = Dict_thm.find th2 !th_to_size in
                                                        if size'+size''+1 < prev_size then Binary(th3,"eq_mp",ref node',ref node''), size'+size''+1
                                                        else prev_node, prev_size
-                                                   with Failure _ -> prev_node, prev_size end
-                    | Tdeduct_antisym_rule(th1,th2,th3) -> begin try let node' = assoc th1 !th_to_node in let size' = assoc th1 !th_to_size in
-                                                                     let node'' = assoc th2 !th_to_node in let size'' = assoc th2 !th_to_size in
+                                                   with e -> prev_node, prev_size end
+                    | Tdeduct_antisym_rule(th1,th2,th3) -> begin try let node' = Dict_thm.find th1 !th_to_node in let size' = Dict_thm.find th1 !th_to_size in
+                                                                     let node'' = Dict_thm.find th2 !th_to_node in let size'' = Dict_thm.find th2 !th_to_size in
                                                                      if size'+size''+1 < prev_size then Binary(th3,"deduct_antisym_rule",ref node',ref node''), size'+size''+1
                                                                      else prev_node, prev_size
-                                                                 with Failure _ -> prev_node, prev_size end
+                                                                 with e -> prev_node, prev_size end
                   end
       | [] -> null_node, 1000000000 in
   let rec f t_list =
     let node,size = view t_list in let th = thm_of_node node in
     if equals_thm thh th then node else begin
-      th_to_node := (th,node)::(!th_to_node); 
-      th_to_size := (th,size)::(!th_to_size);
+      th_to_node := Dict_thm.add th node !th_to_node;
+      th_to_size := Dict_thm.add th size !th_to_size;
       f (remove_all t_list th) end in
   f t_list;;
 
